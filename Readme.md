@@ -14,10 +14,10 @@ List available actions.
 
 ```
 $ ow --help
-usage: ow [-h] [-d] {h,html-link,i,internal-link,l,lock,u,unlock} path
+usage: ow [-h] [-d] {h,html-link,i,internal-link,l,lock,q,quick-album,u,unlock} path
 
 positional arguments:
-  {h,html-link,i,internal-link,l,lock,u,unlock}
+  {h,html-link,i,internal-link,l,lock,q,quick-album,u,unlock}
                         action to perform
   path                  local path to operate on
 
@@ -57,6 +57,10 @@ $ ow lock ~/Nextcloud/test.md
 ```
 
 Locking indicates to other users your wish to avoid conflicts in shared files.
+
+### Quick album
+
+TBD. See <https://help.nextcloud.com/t/creating-html-emails-with-multiple-referenced-shared-nextcloud-images/164414>
 
 ### Unock
 
