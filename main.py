@@ -29,6 +29,8 @@ import xml.etree.cElementTree as cET
 
 nextcloudWebdavFileRoot = 'remote.php/dav/files'
 
+nextcloudOcsShareApiRoot = 'ocs/v2.php/apps/files_sharing/api/v1'
+
 ##########################################################################
 # YOUR CONFIG - change these
 ##########################################################################
@@ -52,7 +54,7 @@ nextcloudPassword = 'admin'
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-d', '--debug', help='enable debug messages', action='store_true')
-parser.add_argument('action', help='action to perform', choices=['h','html-link','i','internal-link','l','lock','u','unlock'])
+parser.add_argument('action', help='action to perform', choices=['h','html-link','i','internal-link','l','lock','q','quick-album','u','unlock'])
 parser.add_argument('path', help='local path to operate on')
 args = parser.parse_args()
 
@@ -145,6 +147,40 @@ def lockOrUnlock(action, auth, fileurl):
 def renderInternalUrl(nextcloudServer, fileId):
     return f'{nextcloudServer}/f/{fileId}'
 
+def sharePath(auth, rootedServerPath):
+    debug(f'🏃 share {rootedServerPath}...')
+
+    sharesUrl = '/'.join([nextcloudServer, nextcloudOcsShareApiRoot, 'shares'])
+    headers = {'OCS-APIRequest': 'true'}
+    _postBody = {
+        "attributes": "[]",
+        "path": rootedServerPath,
+        "shareType": 3, # public
+    }
+    try:
+        response = requests.post(sharesUrl, auth=auth, headers=headers, data=_postBody)
+    except requests.RequestException as e:
+        print(f'⛔ POST request failed: {e}', file=sys.stderr)
+        sys.exit(1)
+
+    # response status code must be between 200 and 400 to continue
+    # use overloaded __bool__() to check this
+    if not response:
+        print(f'⛔ HTTP response code {response.status_code}. Response text: {response.text}', file=sys.stderr)
+        sys.exit(1)
+
+    debug(f'📝 HTTP response code {response.status_code}. Response text: {response.text}')
+
+    root = cET.fromstring(response.text)
+    fileId = root.findtext('.//file_source')
+    token = root.findtext('.//token')
+    return {
+        "publicShareUrl": root.findtext('.//url'),
+        "fileId": fileId,
+        "largeImageUrl": '/'.join([nextcloudServer, f'apps/files_sharing/publicpreview/{token}?file=/&fileId={fileId}&x=4096&y=4096&a=true']),
+        "previewImageUrl": '/'.join([nextcloudServer, f'apps/files_sharing/publicpreview/{token}?file=/&fileId={fileId}&x=300&y=300&a=true']),
+    }
+
 if args.action in ['i','internal-link']:
     fileId = getFileId(_auth, _fileurl)
     print(renderInternalUrl(nextcloudServer, fileId))
@@ -163,3 +199,11 @@ if args.action in ['h','html-link']:
     fileId = getFileId(_auth, _fileurl)
     internalUrl = renderInternalUrl(nextcloudServer, fileId)
     print(f'<a href="{internalUrl}">{relativePathOnly}</a>')
+
+if args.action in ['q','quick-album']:
+    debug('🏃 quick albuming...')
+    data = sharePath(_auth, f'/{relativePathOnly}')
+    publicShareUrl = data["publicShareUrl"]
+    largeImageUrl = data["largeImageUrl"]
+    previewImageUrl = data["previewImageUrl"]
+    print(f'<a href="{largeImageUrl}"><img src="{previewImageUrl}"></a>')
